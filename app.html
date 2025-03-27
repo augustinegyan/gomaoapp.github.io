@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart House with Weather</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .bulb-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .bulb-card {
+            background: #2d2d2d;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .bulb-icon {
+            width: 80px;
+            height: 80px;
+            background: #333;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .bulb-icon.active {
+            background: #ffeb3b;
+            box-shadow: 0 0 20px #ffeb3b80;
+        }
+
+        .power-btn {
+            background: #4CAF50;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+        }
+
+        .power-btn.off {
+            background: #f44336;
+        }
+
+        .live-feed {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .live-feed video {
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .nav-btn {
+            position: absolute;
+            top: 0px;
+            right: -20px;
+            background: #2196F3;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        /* Weather Styles */
+        .weather-widget {
+            background: #2d2d2d;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .weather-circle {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            position: relative;
+            background: linear-gradient(135deg, #F5F5F5, #E0E0E0);
+            box-shadow: 
+                inset 0 0 15px rgba(0,0,0,0.1),
+                0 10px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .weather-arc {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 15px solid transparent;
+            border-radius: 50%;
+            top: 0;
+            left: 0;
+        }
+
+        .weather-arc-background {
+            border-top-color: rgba(255,255,255,0.2);
+            border-right-color: rgba(255,255,255,0.2);
+            border-bottom-color: rgba(0,0,0,0.1);
+            border-left-color: rgba(0,0,0,0.1);
+        }
+
+        .weather-arc-progress {
+            border-top-color: #4A90E2;
+            border-right-color: #4A90E2;
+            border-bottom-color: #4A90E2;
+            border-left-color: #4A90E2;
+            transform: rotate(0deg);
+            transition: transform 0.5s ease;
+        }
+
+        .weather-center {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .weather-temp {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .weather-condition {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .weather-details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            color: #666;
+        }
+
+        .weather-error {
+            color: #ff4d4d;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* Alert Popup Styles */
+        .alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1500;
+        }
+
+        .alert-popup {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 350px;
+            text-align: center;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            transform: scale(0.7);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .alert-popup.show {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .alert-icon {
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 20px;
+            animation: pulse 2s infinite;
+        }
+
+        .alert-icon img {
+            width: 60px;
+            height: 60px;
+        }
+
+        .alert-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .alert-message {
+            font-size: 16px;
+            color: #ecf0f1;
+            margin-bottom: 20px;
+        }
+
+        .alert-close {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .alert-close:hover {
+            background: #c0392b;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Smart House</h1>
+        <div class="nav-btn" onclick="toggleLiveFeed()">View Live Feed</div>
+        
+        <!-- Weather Widget -->
+        <div class="weather-widget">
+            <h2>Gomoa-Akwakrom, Ghana</h2>
+            <div class="weather-circle" id="weatherCircle">
+                <div class="weather-arc weather-arc-background"></div>
+                <div class="weather-arc weather-arc-progress" id="weatherArc"></div>
+                <div class="weather-center">
+                    <div class="weather-temp" id="temperatureText">--°C</div>
+                    <div class="weather-condition" id="conditionText">Loading...</div>
+                </div>
+            </div>
+            <div class="weather-details">
+                <span id="humidityText">Humidity: --%</span>
+                <span id="windText">Wind: -- m/s</span>
+            </div>
+            <div id="weatherError" class="weather-error"></div>
+        </div>
+
+        <div class="bulb-grid" id="bulbGrid"></div>
+        <div class="group-controls">
+            <button onclick="toggleAll()" class="power-btn">All On/Off</button>
+        </div>
+    </div>
+
+    <div class="live-feed" id="liveFeed">
+        <div class="nav-btn" onclick="toggleLiveFeed()">Controls</div>
+        <h2>Security Live Feed</h2>
+        <video controls poster="https://placehold.co/600x400?text=Live+Feed">
+            <source src="https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="feed-status">
+            <p>🟢 Live - Last updated: Just now</p>
+            <p>📍 Location: Living Room</p>
+        </div>
+    </div>
+
+    <!-- Alert Popup -->
+    <div class="alert-overlay" id="alertOverlay">
+        <div class="alert-popup" id="alertPopup">
+            <div class="alert-icon" id="alertIcon">
+                <img src="/api/placeholder/60/60" alt="Alert Icon" id="alertIconImg">
+            </div>
+            <div class="alert-title" id="alertTitle">Security Alert</div>
+            <div class="alert-message" id="alertMessage">Movement detected</div>
+            <button class="alert-close" onclick="closeAlert()">Dismiss</button>
+        </div>
+    </div>
+
+    <script>
+                
+        // Bulb states
+        const bulbs = [
+            { id: 1, on: false },
+            { id: 2, on: false },
+            { id: 3, on: false },
+            { id: 4, on: false }
+        ];
+
+        // Weather API configuration
+        const WEATHER_CONFIG = {
+            city: 'Cape Coast',
+            country: 'GH',
+            apiKey: '6295a4fb0e55d10405805e8b35d38c40',
+            units: 'metric'
+        };
+
+        // Alert Popup Configuration
+        const ALERT_LOCATIONS = [
+            { 
+                title: 'Corridor Alert', 
+                message: 'Movement detected in the corridor',
+                icon: 'https://static.vecteezy.com/system/resources/thumbnails/031/640/939/small/attention-bell-alert-ai-generative-png.png'
+            },
+            { 
+                title: 'Right Wing Alert', 
+                message: 'Motion detected on the right side of the house',
+                icon: 'https://static.vecteezy.com/system/resources/thumbnails/031/640/939/small/attention-bell-alert-ai-generative-png.png'
+            },
+            { 
+                title: 'Back Area Alert', 
+                message: 'Potential movement detected at the back entrance',
+                icon: 'https://static.vecteezy.com/system/resources/thumbnails/031/640/939/small/attention-bell-alert-ai-generative-png.png'
+            }
+        ];
+
+        let currentAlertIndex = 0;
+
+        // Fetch weather data
+        async function fetchWeather() {
+            const temperatureText = document.getElementById('temperatureText');
+            const conditionText = document.getElementById('conditionText');
+            const humidityText = document.getElementById('humidityText');
+            const windText = document.getElementById('windText');
+            const weatherArc = document.getElementById('weatherArc');
+            const weatherError = document.getElementById('weatherError');
+
+            try {
+                // Construct API URL
+                const url = `https://api.openweathermap.org/data/2.5/weather?q=${WEATHER_CONFIG.city},${WEATHER_CONFIG.country}&appid=${WEATHER_CONFIG.apiKey}&units=${WEATHER_CONFIG.units}`;
+                
+                // Fetch weather data
+                const response = await fetch(url);
+                
+                // Check if response is successful
+                if (!response.ok) {
+                    throw new Error('Weather data could not be retrieved');
+                }
+
+                const data = await response.json();
+
+                // Update weather details
+                const temp = Math.round(data.main.temp);
+                temperatureText.textContent = `${temp}°C`;
+                
+                // Get weather condition
+                const condition = data.weather[0].main;
+                conditionText.textContent = condition;
+
+                humidityText.textContent = `Humidity: ${data.main.humidity}%`;
+                windText.textContent = `Wind: ${data.wind.speed.toFixed(1)} m/s`;
+
+                // Animate arc based on temperature
+                // Mapping temperature to rotation (assuming -10 to 40 degrees range)
+                const rotation = Math.min(Math.max((temp + 10) / 50 * 360, 0), 360);
+                weatherArc.style.transform = `rotate(${rotation}deg)`;
+
+                // Clear any previous error
+                weatherError.textContent = '';
+            } catch (error) {
+                // Handle errors
+                console.error('Weather fetch error:', error);
+                
+                // Update UI with error message
+                temperatureText.textContent = 'N/A';
+                conditionText.textContent = 'Error';
+                humidityText.textContent = 'Humidity: N/A';
+                windText.textContent = 'Wind: N/A';
+                weatherError.textContent = 'Unable to fetch weather data. Please try again later.';
+                
+                // Reset arc rotation
+                weatherArc.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function showAlert() {
+            const alertOverlay = document.getElementById('alertOverlay');
+            const alertPopup = document.getElementById('alertPopup');
+            const alertTitle = document.getElementById('alertTitle');
+            const alertMessage = document.getElementById('alertMessage');
+            const alertIconImg = document.getElementById('alertIconImg');
+
+            // Get current alert details
+            const currentAlert = ALERT_LOCATIONS[currentAlertIndex];
+
+            // Update popup content
+            alertTitle.textContent = currentAlert.title;
+            alertMessage.textContent = currentAlert.message;
+            alertIconImg.src = currentAlert.icon;
+
+            // Show the alert
+            alertOverlay.style.display = 'flex';
+            setTimeout(() => {
+                alertPopup.classList.add('show');
+            }, 10);
+
+            // Cycle to next alert
+            currentAlertIndex = (currentAlertIndex + 1) % ALERT_LOCATIONS.length;
+        }
+
+        function closeAlert() {
+            const alertOverlay = document.getElementById('alertOverlay');
+            const alertPopup = document.getElementById('alertPopup');
+
+            alertPopup.classList.remove('show');
+            setTimeout(() => {
+                alertOverlay.style.display = 'none';
+            }, 300);
+        }
+
+        function init() {
+            const grid = document.getElementById('bulbGrid');
+            grid.innerHTML = '';
+            bulbs.forEach((bulb, index) => {
+                grid.innerHTML += `
+                    <div class="bulb-card">
+                        <h3>Bulb ${index + 1}</h3>
+                        <div class="bulb-icon ${bulb.on ? 'active' : ''}"></div>
+                        <button class="power-btn ${bulb.on ? '' : 'off'}" 
+                                onclick="toggleBulb(${index})">
+                            ${bulb.on ? 'ON' : 'OFF'}
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function toggleBulb(index) {
+            bulbs[index].on = !bulbs[index].on;
+            updateUI();
+        }
+
+        function toggleAll() {
+            const newState = !bulbs.some(bulb => bulb.on);
+            bulbs.forEach(bulb => bulb.on = newState);
+            updateUI();
+        }
+
+        function toggleLiveFeed() {
+            const mainView = document.querySelector('.container');
+            const feedView = document.getElementById('liveFeed');
+            if (feedView.style.display === 'block') {
+                feedView.style.display = 'none';
+                mainView.style.display = 'block';
+            } else {
+                feedView.style.display = 'block';
+                mainView.style.display = 'none';
+            }
+        }
+
+        function updateUI() {
+            document.querySelectorAll('.bulb-card').forEach((card, index) => {
+                card.querySelector('.bulb-icon').className = 
+                    `bulb-icon ${bulbs[index].on ? 'active' : ''}`;
+                card.querySelector('.power-btn').className = 
+                    `power-btn ${bulbs[index].on ? '' : 'off'}`;
+                card.querySelector('.power-btn').textContent = 
+                    bulbs[index].on ? 'ON' : 'OFF';
+            });
+        }
+
+        // Initialize app and fetch weather
+        init();
+        fetchWeather();
+        // Refresh weather every 15 minutes
+        setInterval(fetchWeather, 15 * 60 * 1000);
+
+        // Show first alert after 20 seconds, then repeat every 20 seconds
+        setTimeout(showAlert, 20000);
+        setInterval(showAlert, 60000); // Every minute to prevent overwhelming
+
+        // Replace with your ESP32's IP address
+const ESP32_IP = '192.168.137.154';
+
+// Modified toggle functions
+async function toggleBulb(index) {
+    const newState = !bulbs[index].on;
+    try {
+        const response = await fetch(
+            `http://${ESP32_IP}/control?bulb=${index + 1}&state=${newState ? 'on' : 'off'}`
+        );
+        if (await response.text() === 'OK') {
+            bulbs[index].on = newState;
+            updateUI();
+        }
+    } catch(error) {
+        console.error('Control error:', error);
+        // Revert UI if failed
+        bulbs[index].on = !newState;
+        updateUI();
+    }
+}
+
+async function toggleAll() {
+    const newState = !bulbs.some(bulb => bulb.on);
+    try {
+        // Send commands for all bulbs
+        await Promise.all(bulbs.map(async (_, index) => {
+            await fetch(`http://${ESP32_IP}/control?bulb=${index + 1}&state=${newState ? 'on' : 'off'}`);
+        }));
+        
+        // Update all states
+        bulbs.forEach(bulb => bulb.on = newState);
+        updateUI();
+    } catch(error) {
+        console.error('Toggle all error:', error);
+    }
+}
+
+// Add status polling
+async function pollStatus() {
+    try {
+        const response = await fetch(`http://${ESP32_IP}/status`);
+        const statusText = await response.text();
+        
+        // Parse status response
+        statusText.split('\n').forEach(line => {
+            const match = line.match(/Bulb(\d+):(on|off)/);
+            if (match) {
+                const index = parseInt(match[1]) - 1;
+                if (index >= 0 && index < 4) {
+                    bulbs[index].on = match[2] === 'on';
+                }
+            }
+        });
+        
+        updateUI();
+    } catch(error) {
+        console.error('Status poll error:', error);
+    }
+}
+
+// Initialize polling
+setInterval(pollStatus, 2000); // Update every 2 seconds
+
+// Remove the existing updateUI() function and replace with:
+function updateUI() {
+    document.querySelectorAll('.bulb-card').forEach((card, index) => {
+        const bulb = bulbs[index];
+        card.querySelector('.bulb-icon').className = `bulb-icon ${bulb.on ? 'active' : ''}`;
+        const button = card.querySelector('.power-btn');
+        button.className = `power-btn ${bulb.on ? '' : 'off'}`;
+        button.textContent = bulb.on ? 'ON' : 'OFF';
+    });
+}
+
+
+
+                            
+    </script>
+</body>
+</html>
